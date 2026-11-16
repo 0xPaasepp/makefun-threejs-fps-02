@@ -1,0 +1,212 @@
+{
+  "assertions": [
+    {
+      "name": "shot start",
+      "result": true
+    },
+    {
+      "name": "shot mid",
+      "result": true
+    },
+    {
+      "name": "shot plant",
+      "result": true
+    },
+    {
+      "name": "shot end",
+      "result": true
+    },
+    {
+      "name": "graph",
+      "result": true
+    },
+    {
+      "name": "buy",
+      "result": true
+    },
+    {
+      "name": "ammo_duster",
+      "result": true
+    },
+    {
+      "name": "ammo_squall",
+      "result": true
+    },
+    {
+      "name": "ammo_longline",
+      "result": true
+    },
+    {
+      "name": "noRefill",
+      "result": true
+    },
+    {
+      "name": "spread",
+      "result": true
+    },
+    {
+      "name": "wallCollision",
+      "result": true
+    },
+    {
+      "name": "move",
+      "result": true
+    },
+    {
+      "name": "crouch",
+      "result": true
+    },
+    {
+      "name": "jump",
+      "result": true
+    },
+    {
+      "name": "land",
+      "result": true
+    },
+    {
+      "name": "wallShot",
+      "result": true
+    },
+    {
+      "name": "headshot",
+      "result": true
+    },
+    {
+      "name": "armor",
+      "result": true
+    },
+    {
+      "name": "interrupt_0",
+      "result": true
+    },
+    {
+      "name": "plant_0",
+      "result": true
+    },
+    {
+      "name": "interrupt_1",
+      "result": true
+    },
+    {
+      "name": "plant_1",
+      "result": true
+    },
+    {
+      "name": "defuse",
+      "result": true
+    },
+    {
+      "name": "detonation",
+      "result": true
+    },
+    {
+      "name": "timeout",
+      "result": true
+    },
+    {
+      "name": "elimination",
+      "result": true
+    },
+    {
+      "name": "pickup",
+      "result": true
+    },
+    {
+      "name": "hearing",
+      "result": true
+    },
+    {
+      "name": "lossAward",
+      "result": true
+    },
+    {
+      "name": "lossStreak",
+      "result": true
+    },
+    {
+      "name": "winAward",
+      "result": true
+    },
+    {
+      "name": "grenadeInventory",
+      "result": true
+    },
+    {
+      "name": "grenadeBlast",
+      "result": true
+    },
+    {
+      "name": "3+ full simulated rounds",
+      "result": true
+    },
+    {
+      "name": "match ends first to five",
+      "result": true
+    },
+    {
+      "name": "no path stuck over five seconds",
+      "result": true
+    },
+    {
+      "name": "play again",
+      "result": true
+    },
+    {
+      "name": "zero browser errors",
+      "result": true
+    }
+  ],
+  "match": {
+    "rounds": [
+      {
+        "round": 1,
+        "score": [
+          0,
+          1
+        ],
+        "reason": "BRINE HOLDS THE LINE"
+      },
+      {
+        "round": 2,
+        "score": [
+          0,
+          2
+        ],
+        "reason": "THE CHARGE IS DEFUSED"
+      },
+      {
+        "round": 3,
+        "score": [
+          0,
+          3
+        ],
+        "reason": "THE CHARGE IS DEFUSED"
+      },
+      {
+        "round": 4,
+        "score": [
+          0,
+          4
+        ],
+        "reason": "THE CHARGE IS DEFUSED"
+      },
+      {
+        "round": 5,
+        "score": [
+          0,
+          5
+        ],
+        "reason": "BRINE HOLDS THE LINE"
+      }
+    ],
+    "score": [
+      0,
+      5
+    ],
+    "stuckMax": 2.9999999999999942,
+    "violations": [],
+    "time": 254.26666666676115
+  },
+  "errors": []
+}

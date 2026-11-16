@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="./favicon.svg" />
+    <title>SALTLINE — The Saltworks</title>
+    <style>
+      :root {
+        --dusk: #221c2e;
+        --salt: #e6dfd0;
+        --iron: #3a3f45;
+        --brine: #3f7d7a;
+        --sand: #d9c9a3;
+        --rust: #c25e33;
+        --ink: #f2ede1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--dusk);
+        color: var(--ink);
+        font-family: system-ui;
+        overflow: hidden;
+      }
+      canvas#view {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      .micro {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        font-weight: 400;
+        text-transform: uppercase;
+        color: var(--sand);
+      }
+      #score {
+        position: absolute;
+        top: 25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--dusk);
+        border: 1px solid var(--iron);
+        padding: 12px 25px;
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        font-size: 14px;
+      }
+      b {
+        color: var(--rust);
+      }
+      #radar {
+        position: absolute;
+        top: 25px;
+        left: 28px;
+        width: 180px;
+        height: 140px;
+        border: 1px solid var(--iron);
+        background: var(--dusk);
+        opacity: 0.9;
+      }
+      #vital {
+        position: absolute;
+        bottom: 30px;
+        left: 32px;
+        width: 240px;
+      }
+      #health {
+        position: relative;
+        z-index: 1;
+        font-size: 64px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      #hpbar {
+        margin-top: -14px;
+        margin-bottom: 14px;
+        height: 14px;
+        background: var(--rust);
+        width: 100%;
+      }
+      #armor {
+        height: 4px;
+        background: var(--sand);
+        margin-top: 5px;
+      }
+      #ammo {
+        position: absolute;
+        right: 32px;
+        bottom: 32px;
+        text-align: right;
+        min-width: 200px;
+      }
+      #mag {
+        font-size: 56px;
+        font-weight: 300;
+      }
+      #reserve {
+        font-size: 22px;
+        color: var(--sand);
+      }
+      #reload {
+        height: 3px;
+        background: var(--rust);
+        transform-origin: left;
+      }
+      #reloadLabel {
+        height: 16px;
+      }
+      #feed {
+        position: absolute;
+        right: 30px;
+        top: 35px;
+        text-align: right;
+        font-size: 12px;
+        line-height: 26px;
+      }
+      #cross {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 2px;
+        height: 2px;
+        background: var(--rust);
+      }
+      #cross i {
+        position: absolute;
+        background: var(--ink);
+        opacity: 0.8;
+      }
+      #cross i:nth-child(1) {
+        width: 9px;
+        height: 1px;
+        right: var(--gap);
+        top: 0;
+      }
+      #cross i:nth-child(2) {
+        width: 9px;
+        height: 1px;
+        left: var(--gap);
+        top: 0;
+      }
+      #cross i:nth-child(3) {
+        height: 9px;
+        width: 1px;
+        bottom: var(--gap);
+      }
+      #cross i:nth-child(4) {
+        height: 9px;
+        width: 1px;
+        top: var(--gap);
+      }
+      #hit {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 20px;
+        height: 20px;
+        transform: translate(-50%, -50%) rotate(45deg);
+        border: 1px solid var(--rust);
+        opacity: 0;
+      }
+      #objective {
+        position: absolute;
+        bottom: 135px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+      }
+      #progress {
+        height: 3px;
+        background: var(--rust);
+        margin: 10px auto;
+        width: 0;
+      }
+      #overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, var(--dusk), transparent 90%);
+        display: flex;
+        align-items: center;
+        padding: 7vw;
+      }
+      #panel {
+        max-width: 610px;
+      }
+      #eyebrow {
+        letter-spacing: 0.35em;
+        font-size: 12px;
+        color: var(--sand);
+      }
+      h1 {
+        font-size: clamp(70px, 10vw, 140px);
+        letter-spacing: -0.065em;
+        line-height: 0.95;
+        font-weight: 300;
+        margin: 24px 0;
+      }
+      #subtitle {
+        font-size: 17px;
+        line-height: 1.7;
+        color: var(--sand);
+        max-width: 440px;
+      }
+      button {
+        background: var(--rust);
+        color: var(--ink);
+        border: 0;
+        padding: 17px 30px;
+        font: inherit;
+        letter-spacing: 0.14em;
+        cursor: pointer;
+        margin: 24px 0;
+      }
+      #controls {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        line-height: 2.1;
+        color: var(--sand);
+      }
+      #buy {
+        display: none;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 460px;
+        background: var(--dusk);
+        border: 1px solid var(--iron);
+        padding: 32px;
+      }
+      #buy h2 {
+        font-weight: 300;
+        letter-spacing: 0.1em;
+      }
+      #buy button {
+        display: block;
+        margin: 8px 0;
+        padding: 12px;
+        width: 100%;
+        text-align: left;
+        background: var(--iron);
+        font-size: 13px;
+      }
+      #buy button:hover {
+        background: var(--rust);
+      }
+      #spectate {
+        position: absolute;
+        bottom: 190px;
+        width: 100%;
+        text-align: center;
+        font-size: 13px;
+        color: var(--sand);
+      }
+      #damage {
+        position: absolute;
+        inset: 0;
+        box-shadow: inset 0 0 100px var(--rust);
+        opacity: 0;
+        pointer-events: none;
+      }
+      #brand {
+        position: absolute;
+        bottom: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 9px;
+        letter-spacing: 0.3em;
+        color: var(--sand);
+      }
+    </style>
+    <script type="importmap">
+      {"imports": {"three": "./vendor/three/three.module.min.js"}}
+    </script>
+  </head>
+  <body>
+    <canvas id="view"></canvas
+    ><canvas id="radar" width="360" height="280"></canvas>
+    <div id="score"></div>
+    <div id="feed"></div>
+    <div id="vital">
+      <div class="micro">Vitality / Rig</div>
+      <div id="health">100</div>
+      <div id="hpbar"></div>
+      <div id="armor"></div>
+    </div>
+    <div id="ammo">
+      <div id="weapon" class="micro"></div>
+      <span id="mag">12</span><span id="reserve"> / 48</span>
+      <div id="reloadLabel" class="micro"></div>
+      <div id="reload"></div>
+    </div>
+    <div id="cross"><i></i><i></i><i></i><i></i></div>
+    <div id="hit"></div>
+    <div id="objective"></div>
+    <div id="spectate"></div>
+    <div id="damage"></div>
+    <div id="brand">SALTLINE / THE SALTWORKS</div>
+    <div id="overlay">
+      <div id="panel">
+        <div id="eyebrow">THE SALTWORKS · 5 V 5 · TACTICAL FPS</div>
+        <h1 id="title">SALTLINE</h1>
+        <div id="subtitle">
+          Dusk falls. The brine holds.<br />Take the saltworks before the light
+          goes.
+        </div>
+        <button id="play">ENTER THE SALTWORKS →</button>
+        <div id="controls">
+          W A S D MOVE &nbsp; / &nbsp; MOUSE AIM + FIRE<br />R RELOAD &nbsp; C /
+          CTRL CROUCH &nbsp; SPACE JUMP<br />B BUY &nbsp; 1–3 WEAPONS &nbsp; G
+          GRENADE &nbsp; HOLD E PLANT
+        </div>
+      </div>
+    </div>
+    <div id="buy">
+      <div class="micro">South gate requisitions · Buy phase only</div>
+      <h2>BUILD YOUR KIT <span id="money"></span></h2>
+      <button data-buy="1">1 &nbsp; DUSTER / FREE</button
+      ><button data-buy="2">2 &nbsp; SQUALL / $1,500</button
+      ><button data-buy="3">3 &nbsp; LONGLINE / $2,700</button
+      ><button data-buy="4">4 &nbsp; FLASHPAN / $300</button
+      ><button data-buy="5">5 &nbsp; RIG VEST / $650</button>
+      <div class="micro">B / ESC CLOSE · EQUIPMENT SURVIVES IF YOU DO</div>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+import { readdirSync, readFileSync, statSync, lstatSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+const files=[];let entries=0;function walk(dir){for(const name of readdirSync(dir)){const path=join(dir,name);entries++;if(lstatSync(path).isSymbolicLink())throw Error('symlink '+path);if(statSync(path).isDirectory())walk(path);else files.push(path);}}walk('game');
+const sum=paths=>paths.reduce((n,p)=>n+statSync(p).size,0),source=files.filter(p=>!p.includes('/vendor/')&&/\.(js|html)$/.test(p));
+const checks={entryCount:entries<=993,gameBytes:sum(files)<=50331648,indexBytes:statSync('game/index.html').size<=1048576,sourceBytes:sum(source)<=143360,judgeNote:readFileSync('game/src/main.js','utf8').startsWith('// JUDGE NOTE'),noNetwork:source.every(p=>!/(?:https?:\/\/|@import\b|url\(\s*["']?\/\/)/.test(readFileSync(p,'utf8')))};
+const vendor={};for(const name of ['three.core.min.js','three.module.min.js','LICENSE']){const local=readFileSync('game/vendor/three/'+name),kit=readFileSync('/home/hatch/workspace/makefun/threejs-fps-02/threejs-fps-02-kit/starter/game/vendor/three/'+name);vendor[name]=createHash('sha256').update(local).digest('hex');checks[name]=local.equals(kit);}
+const dossier=readFileSync('out/dossier.json'),text=JSON.parse(dossier).text;checks.noCutNote=!/lines? (?:not shown|omitted)|whole files.*left out/.test(text);
+const shots=readdirSync('screenshots').sort().map(name=>({name,bytes:statSync('screenshots/'+name).size}));checks.shotCount=shots.length===4&&shots[0].name==='1-cover.jpg';checks.shotSizes=shots.every(s=>s.bytes<=262144&&readFileSync('screenshots/'+s.name).subarray(0,2).equals(Buffer.from([255,216])));
+const report={checks,sourceFiles:source.length,sourceBytes:sum(source),gameEntries:entries,gameBytes:sum(files),dossierBytes:dossier.length,vendor,shots};writeFileSync('verification/audit.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));if(Object.values(checks).some(v=>!v))process.exit(1);

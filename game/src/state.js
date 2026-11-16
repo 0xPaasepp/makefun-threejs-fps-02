@@ -1,0 +1,91 @@
+import { rng } from "./utils.js";
+export const state = {
+  random: rng(1),
+  time: 0,
+  phase: "buy",
+  timer: 12,
+  round: 0,
+  score: [0, 0],
+  losses: [0, 0],
+  players: [],
+  charge: {
+    carrier: 0,
+    planted: false,
+    x: 0,
+    z: 14,
+    y: 0,
+    fuse: 35,
+    site: -1,
+    pickup: 0,
+  },
+  events: [],
+  noise: [],
+  feed: [],
+  started: false,
+  paused: false,
+  buy: false,
+  hit: 0,
+  killHit: 0,
+  damageFlash: 0,
+  shake: 0,
+  winner: -1,
+  message: "",
+  shot: false,
+  grenades: [],
+  perception: 0,
+};
+export function emit(type, data = {}) {
+  state.events.push({ type, ...data });
+}
+state.emitNoise = (x, z, radius, kind, team = -1) => {
+  state.noise.push({ x, z, radius, kind, team, time: state.time });
+  if (state.noise.length > 24) state.noise.shift();
+};
+export function createPlayers() {
+  state.players.length = 0;
+  for (let i = 0; i < 10; i++)
+    state.players.push({
+      id: i,
+      name: i === 0 ? "YOU" : (i < 5 ? "RUST " : "BRINE ") + ((i % 5) + 1),
+      team: i < 5 ? 0 : 1,
+      x: 0,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      yaw: i < 5 ? 0 : Math.PI,
+      pitch: 0,
+      hp: 100,
+      armor: 0,
+      money: 800,
+      gun: "duster",
+      owned: ["duster"],
+      mag: 12,
+      reserve: 48,
+      reload: 0,
+      cooldown: 0,
+      bloom: 0,
+      kick: 0,
+      grenade: 0,
+      alive: true,
+      crouch: false,
+      onGround: true,
+      state: "BUY",
+      path: [],
+      pathIndex: 0,
+      target: -1,
+      reaction: 0,
+      burst: 0,
+      skill: 0.8 + state.random() * 0.4,
+      channel: 0,
+      damagedAt: -10,
+      noiseAt: -1,
+      hold: 0,
+      stuck: 0,
+      lastX: 0,
+      lastZ: 0,
+      kills: 0,
+      step: 0,
+    });
+}

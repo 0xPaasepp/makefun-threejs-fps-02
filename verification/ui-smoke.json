@@ -1,0 +1,11 @@
+{
+  "locked": true,
+  "bought": true,
+  "moved": true,
+  "crouch": true,
+  "fired": true,
+  "reload": true,
+  "refilled": true,
+  "paused": true,
+  "errors": []
+}

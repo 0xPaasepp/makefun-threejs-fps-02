@@ -160,53 +160,53 @@
   "match": {
     "rounds": [
       {
+        "round": 0,
+        "score": [
+          1,
+          0
+        ],
+        "reason": "BRINE ELIMINATED"
+      },
+      {
         "round": 1,
         "score": [
-          0,
+          1,
           1
         ],
-        "reason": "BRINE HOLDS THE LINE"
+        "reason": "RUST ELIMINATED"
       },
       {
         "round": 2,
         "score": [
-          0,
+          1,
           2
         ],
-        "reason": "THE CHARGE IS DEFUSED"
+        "reason": "RUST ELIMINATED"
       },
       {
         "round": 3,
         "score": [
-          0,
+          1,
           3
         ],
-        "reason": "THE CHARGE IS DEFUSED"
+        "reason": "RUST ELIMINATED"
       },
       {
         "round": 4,
         "score": [
-          0,
+          1,
           4
         ],
-        "reason": "THE CHARGE IS DEFUSED"
-      },
-      {
-        "round": 5,
-        "score": [
-          0,
-          5
-        ],
-        "reason": "BRINE HOLDS THE LINE"
+        "reason": "RUST ELIMINATED"
       }
     ],
     "score": [
-      0,
+      1,
       5
     ],
-    "stuckMax": 2.9999999999999942,
+    "stuckMax": 0,
     "violations": [],
-    "time": 254.26666666676115
+    "time": 134.19999999999894
   },
   "errors": []
 }

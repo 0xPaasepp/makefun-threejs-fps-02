@@ -1,39 +1,8 @@
-let ctx = null,
-  muted = false;
-export function startAudio(silent = false) {
-  muted = silent;
-  if (!silent) {
-    ctx ||= new AudioContext();
-    ctx.resume();
-  }
-}
-export function sound(kind, volume = 0.15) {
-  if (!ctx || muted) return;
-  const t = ctx.currentTime,
-    g = ctx.createGain();
-  g.connect(ctx.destination);
-  g.gain.setValueAtTime(volume, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + (kind === "gun" ? 0.13 : 0.16));
-  if (kind === "gun" || kind === "blast") {
-    const len = Math.floor(ctx.sampleRate * 0.15),
-      b = ctx.createBuffer(1, len, ctx.sampleRate),
-      d = b.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const n = ctx.createBufferSource(),
-      f = ctx.createBiquadFilter();
-    f.type = "lowpass";
-    f.frequency.value = kind === "gun" ? 1800 : 450;
-    n.buffer = b;
-    n.connect(f);
-    f.connect(g);
-    n.start(t);
-  } else {
-    const o = ctx.createOscillator();
-    o.type = "sine";
-    o.frequency.setValueAtTime(kind === "win" ? 540 : kind === "step" ? 80 : kind === "reload" ? 220 : 760, t);
-    if (kind === "win") o.frequency.setValueAtTime(810, t + 0.08);
-    o.connect(g);
-    o.start(t);
-    o.stop(t + 0.18);
-  }
-}
+import state,{on} from './state.js';
+let context=null,master=null;
+export function startAudio(){if(state.shot)return;try{context ||= new (window.AudioContext||window.webkitAudioContext)();if(!master){master=context.createGain();master.gain.value=.13;master.connect(context.destination);}if(context.state==='suspended')context.resume();}catch{context=null;}}
+function tone(frequency,duration=.08,type='sine',volume=.2,delay=0){if(!context||state.shot)return;const osc=context.createOscillator(),gain=context.createGain(),at=context.currentTime+delay;osc.type=type;osc.frequency.setValueAtTime(frequency,at);osc.frequency.exponentialRampToValueAtTime(Math.max(30,frequency*.45),at+duration);gain.gain.setValueAtTime(volume,at);gain.gain.exponentialRampToValueAtTime(.001,at+duration);osc.connect(gain);gain.connect(master);osc.start(at);osc.stop(at+duration);}
+function gunshot(p){if(!context||state.shot)return;const length=Math.floor(context.sampleRate*.09),buffer=context.createBuffer(1,length,context.sampleRate),data=buffer.getChannelData(0);let random=871;for(let i=0;i<length;i++){random=(Math.imul(random,1664525)+1013904223)>>>0;data[i]=(random/2147483648-1)*(1-i/length);}const source=context.createBufferSource(),filter=context.createBiquadFilter(),gain=context.createGain();source.buffer=buffer;filter.type='lowpass';filter.frequency.value=p.gun==='duster'?2400:1600;gain.gain.value=p.human?.65:.18;source.connect(filter);filter.connect(gain);gain.connect(master);source.start();tone(p.gun==='longline'?100:150,.13,'triangle',p.human?.4:.12);}
+export function initAudio(){on('shot',s=>gunshot(s.p));on('reload',()=>{tone(740,.035,'square',.08);tone(430,.05,'square',.08,.4);});on('buy',()=>tone(600,.05,'sine',.1));on('plant',()=>{tone(880,.12);tone(660,.15,'sine',.2,.15);});on('roundEnd',()=>{tone(440,.18,'sine',.25);tone(660,.3,'sine',.25,.2);});on('burst',()=>tone(65,.4,'sawtooth',.5));on('footstep',noise=>{if(Math.hypot(noise.x-state.player.x,noise.z-state.player.z)<10)tone(110,.025,'triangle',.06);});}
+let lastBeep=-1;
+export function updateAudio(){const c=state.charge;if(c.planted&&state.phase==='live'){const beat=Math.floor(state.time*(c.fuse<8?4:1));if(beat!==lastBeep){lastBeep=beat;tone(970,.045,'sine',.12);}}}

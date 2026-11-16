@@ -1,71 +1,28 @@
-import { clamp } from "./utils.js";
-export function floorAt(p, map) {
-  let floor = 0;
-  for (let i = 0; i < map.colliders.length; i++) {
-    const c = map.colliders[i];
-    if (c.top <= 0.65 && p.x > c.minX - 0.22 && p.x < c.maxX + 0.22 && p.z > c.minZ - 0.22 && p.z < c.maxZ + 0.22)
-      floor = Math.max(floor, c.top);
-  }
-  return floor;
+import state,{emitNoise} from './state.js';
+import {blocked,floorHeight} from './map.js';
+import {clamp} from './utils.js';
+export const input={keys:{},fire:false,pressed:false,interact:false};
+// Small substeps prevent tunnelling even when a caller supplies a long displacement.
+export function moveActor(p,dx,dz){
+  const count=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dz))/.18)),sx=dx/count,sz=dz/count;
+  for(let i=0;i<count;i++){const height=p.crouch?1.05:1.7;if(!blocked(p.x+sx,p.z,.28,p.y,height))p.x+=sx;if(!blocked(p.x,p.z+sz,.28,p.y,height))p.z+=sz;}
+  p.x=clamp(p.x,-21.5,21.5);p.z=clamp(p.z,-16.5,16.5);
 }
-export function collide(p, dx, dz, map) {
-  const slices = Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.2);
-  if (slices > 1) {
-    for (let i = 0; i < slices; i++) collide(p, dx / slices, dz / slices, map);
-    return;
-  }
-  const r = 0.28,
-    height = p.crouch ? 1.2 : 1.8;
-  for (let axis = 0; axis < 2; axis++) {
-    const old = axis ? p.z : p.x;
-    if (axis) p.z += dz;
-    else p.x += dx;
-    for (let i = 0; i < map.colliders.length; i++) {
-      const c = map.colliders[i];
-      if (c.top <= p.y + 0.65 || c.bottom >= p.y + height) continue;
-      if (p.x + r > c.minX && p.x - r < c.maxX && p.z + r > c.minZ && p.z - r < c.maxZ) {
-        if (axis) p.z = old;
-        else p.x = old;
-        break;
-      }
-    }
-  }
+export function collide(p,dx,dz,map){moveActor(p,dx,dz);}
+export function movePlayer(p,controls,map,dt,speed=5.2){
+  if(!p.alive)return;const k=controls.keys||{};p.crouch=!!(k.KeyC||k.ControlLeft||k.ControlRight);
+  let x=(k.KeyD?1:0)-(k.KeyA?1:0),z=(k.KeyS?1:0)-(k.KeyW?1:0);const len=Math.hypot(x,z);if(len){x/=len;z/=len;}
+  const max=p.crouch?Math.min(2.4,speed):speed,tx=(Math.cos(p.yaw)*x+Math.sin(p.yaw)*z)*max,tz=(-Math.sin(p.yaw)*x+Math.cos(p.yaw)*z)*max;
+  const rate=p.grounded?42:9;p.vx+=clamp(tx-p.vx,-rate*dt,rate*dt);p.vz+=clamp(tz-p.vz,-rate*dt,rate*dt);
+  if(!len){p.vx*=Math.max(0,1-9*dt);p.vz*=Math.max(0,1-9*dt);}
+  // Diagonal acceleration must respect the weapon's movement cap as well.
+  const velocity=Math.hypot(p.vx,p.vz);if(velocity>max){p.vx*=max/velocity;p.vz*=max/velocity;}
+  p.speed=Math.hypot(p.vx,p.vz);moveActor(p,p.vx*dt,p.vz*dt);
+  const ground=floorHeight(p.x,p.z);if(p.y<ground&&ground-p.y<=.65){p.y=ground;p.grounded=p.onGround=true;}
+  if(k.Space&&(p.grounded||p.onGround)){p.vy=6.2;p.grounded=p.onGround=false;}
+  p.vy-=20*dt;p.y+=p.vy*dt;if(p.y<=ground){p.y=ground;p.vy=0;p.grounded=p.onGround=true;}
+  if(p.speed>3&&!p.crouch){p.footstep-=dt;if(p.footstep<=0){p.footstep=.42;emitNoise(p.x,p.z,10,'step',p.team);}}
 }
-export function movePlayer(p, input, map, dt, speed) {
-  p.crouch = !!(input.keys.KeyC || input.keys.ControlLeft);
-  let x = (input.keys.KeyD ? 1 : 0) - (input.keys.KeyA ? 1 : 0),
-    z = (input.keys.KeyS ? 1 : 0) - (input.keys.KeyW ? 1 : 0);
-  const l = Math.hypot(x, z) || 1;
-  x /= l;
-  z /= l;
-  const s = Math.sin(p.yaw),
-    c = Math.cos(p.yaw),
-    v = p.crouch ? 2.4 : speed,
-    acc = p.onGround ? 42 : 9;
-  const tx = (x * c + z * s) * v,
-    tz = (-x * s + z * c) * v;
-  p.vx += clamp(tx - p.vx, -acc * dt, acc * dt);
-  p.vz += clamp(tz - p.vz, -acc * dt, acc * dt);
-  if (!x && !z && p.onGround) {
-    p.vx *= Math.max(0, 1 - 9 * dt);
-    p.vz *= Math.max(0, 1 - 9 * dt);
-  }
-  if (input.keys.Space && p.onGround) {
-    p.vy = 6.2;
-    p.onGround = false;
-  }
-  p.vy -= 20 * dt;
-  collide(p, p.vx * dt, p.vz * dt, map);
-  p.y += p.vy * dt;
-  const f = floorAt(p, map);
-  if (p.y <= f) {
-    p.y = f;
-    p.vy = 0;
-    p.onGround = true;
-  }
-  p.pitch = clamp(p.pitch, -1.4, 1.4);
-}
-export function look(p, dx, dy) {
-  p.yaw -= dx * 0.0022;
-  p.pitch = clamp(p.pitch - dy * 0.0022, -1.4, 1.4);
-}
+export function updatePlayer(dt){if(state.phase==='live')movePlayer(state.player,input,null,dt,({duster:5.2,squall:5.6,longline:5})[state.player.gun]);}
+export function look(dx,dy){const p=state.player;p.yaw-=dx*.0022;p.pitch=clamp(p.pitch-dy*.0022,-1.48,1.48);}
+export function resetPlayer(){input.keys={};input.fire=false;input.pressed=false;state.player.vx=state.player.vz=0;}

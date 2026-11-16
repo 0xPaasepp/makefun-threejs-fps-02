@@ -1,277 +1,32 @@
-import { state, emit } from "./state.js";
-import { distance } from "./utils.js";
-import { guns, equip } from "./weapons.js";
-import { assignRoles } from "./bots.js";
-// Economy is shared by human and bots; loss streaks reset only on a win.
-export const economy = {
-  start: 800,
-  win: 3250,
-  loss: 1900,
-  lossStep: 500,
-  lossCap: 3400,
-  kill: 300,
-  plant: 300,
-  defuse: 300,
-  vest: 650,
-  grenade: 300,
-};
-export function buy(p, n) {
-  if (state.phase !== "buy" || !p.alive) return false;
-  const key = ["", "duster", "squall", "longline"][n];
-  if (key) {
-    if (!p.owned.includes(key)) {
-      if (p.money < guns[key].price) return false;
-      p.money -= guns[key].price;
-      p.owned.push(key);
-    }
-    equip(p, key);
-    return true;
-  }
-  if (n === 4 && p.grenade === 0 && p.money >= 300) {
-    p.money -= 300;
-    p.grenade = 1;
-    return true;
-  }
-  if (n === 5 && p.armor < 50 && p.money >= 650) {
-    p.money -= 650;
-    p.armor = 50;
-    return true;
-  }
-  return false;
+import state,{damage,emit,emitNoise} from './state.js';
+import map,{nodes,spawns,floorHeight} from './map.js';
+import {equip,guns} from './weapons.js';
+import {input as globalInput} from './player.js';
+import {assignRoles,botBuy} from './bots.js';
+import {teamIndex} from './utils.js';
+export {damage};
+export const economy={start:800,win:3250,loss:1900,lossStep:500,lossCap:3400,kill:300,plant:300,defuse:300};
+export const ECONOMY=economy;
+export const items=['duster','squall','longline','flashpan','rig'];
+export function buy(player,value){if(typeof player!=='object'){value=player;player=state.player;}const id=typeof value==='number'?items[value-1]:value,price=guns[id]?.price??({flashpan:300,rig:650})[id];if(state.phase!=='buy'||!player.alive||price===undefined||player.money<price||id==='flashpan'&&player.grenade||id==='rig'&&player.armor>=50)return false;player.money-=price;if(guns[id]){if(!player.owned.includes(id))player.owned.push(id);equip(player,id,true);}else if(id==='rig')player.armor=50;else player.grenade=true;emit('buy',player);return true;}
+export function endRound(team,reason='ROUND SECURED'){if(state.phase!=='live')return false;const t=teamIndex(team);if(t!==0&&t!==1)return false;state.score[t]++;state.winner=t;state.reason=state.message=reason;state.losses[t]=0;state.losses[1-t]++;for(let i=0;i<state.players.length;i++){const p=state.players[i];p.money=Math.min(16000,p.money+(p.team===t?economy.win:Math.min(economy.lossCap,economy.loss+economy.lossStep*(state.losses[1-t]-1))));}state.phase=state.score[t]>=5?'match':'end';state.timer=4;state.buyOpen=false;state.channelText='';state.channelProgress=0;emit('roundEnd',t);return true;}
+export function beginRound(){state.phase='buy';state.timer=12;state.roundSerial++;state.buyOpen=false;state.winner='';state.reason=state.message='';state.site=state.rng()<.5?'A':'B';state.noises.length=0;state.grenades.length=0;state.channelText='';state.channelProgress=0;globalInput.fire=globalInput.pressed=false;
+  Object.assign(state.charge,{carrier:1,planted:false,dropped:false,site:'',x:0,z:14,fuse:35,progress:0,defuse:0,defused:false,actor:-1,pickupBot:-1});
+  for(let i=0;i<state.players.length;i++){const p=state.players[i],n=nodes[spawns[p.team][i%5]];if(!p.alive){p.gun=p.weapon='duster';p.owned=['duster'];p.ammo={};}Object.assign(p,{x:n.x,y:floorHeight(n.x,n.z),z:n.z,yaw:n.yaw,pitch:0,vx:0,vy:0,vz:0,hp:100,alive:true,channel:0,pickup:0,speed:0,stuck:0,damageAt:state.time-10,grounded:true,onGround:true,target:null,state:'BUY',kick:0});if(p.human){p.armor=0;p.grenade=false;equip(p,p.gun,true);}else botBuy(p);}
+  assignRoles();emit('roundStart',state.round);
 }
-export function startRound(map) {
-  state.round++;
-  state.phase = "buy";
-  state.timer = 12;
-  state.buy = false;
-  state.winner = -1;
-  state.message = "";
-  Object.assign(state.charge, {
-    carrier: 0,
-    planted: false,
-    x: 0,
-    y: 0,
-    z: 14,
-    fuse: 35,
-    site: -1,
-    pickup: 0,
-  });
-  state.grenades.length = 0;
-  for (let i = 0; i < 10; i++) {
-    const p = state.players[i],
-      spawn = map.spawns[p.team][i % 5];
-    if (!p.alive) {
-      p.owned = ["duster"];
-      p.gun = "duster";
-      p.armor = 0;
-    }
-    Object.assign(p, {
-      x: spawn.x,
-      y: 0,
-      z: spawn.z,
-      yaw: p.team ? Math.PI : 0,
-      pitch: 0,
-      vx: 0,
-      vy: 0,
-      vz: 0,
-      hp: 100,
-      alive: true,
-      crouch: false,
-      channel: 0,
-      target: -1,
-      reload: 0,
-      cooldown: 0,
-      bloom: 0,
-      kick: 0,
-      grenade: 0,
-      rotateSite: -1,
-      recover: false,
-      cover: null,
-      outnumbered: false,
-      damagedAt: -10,
-    });
-    p.ammo = {};
-    p.mag = guns[p.gun].mag;
-    p.reserve = guns[p.gun].reserve;
-    equip(p, p.gun);
-    if (i) {
-      buy(p, p.money >= 2700 ? 3 : p.money >= 1500 ? 2 : 1);
-      buy(p, 4);
-      buy(p, 5);
-    }
-  }
-  assignRoles(map);
-  emit("round");
+export function startMatch(){state.started=true;state.paused=false;state.round=1;state.score=[0,0];state.losses=[0,0];state.feed=[];for(const p of state.players){p.money=800;p.kills=0;p.deaths=0;p.gun=p.weapon='duster';p.owned=['duster'];p.ammo={};}beginRound();}
+export const resetMatch=startMatch,startRound=beginRound;
+export function plant(p,site){const c=state.charge;if(c.planted)return false;Object.assign(c,{planted:true,dropped:false,carrier:-1,site:site.id,x:site.x,z:site.z,fuse:35,progress:0,actor:-1});p.money=Math.min(16000,p.money+300);p.channel=0;emitNoise(c.x,c.z,18,'plant',p.team);emit('plant',c);return true;}
+export function stepRounds(world,dt,input){
+  if(state.phase==='match')return;state.timer-=dt;
+  if(state.phase==='buy'){if(state.timer<=0){state.phase='live';state.timer=100;state.buyOpen=false;emit('live',null);}return;}
+  if(state.phase==='end'){if(state.timer<=0){state.round++;beginRound();}return;}
+  if(state.phase!=='live')return;const c=state.charge;state.channelText='';state.channelProgress=0;
+  if(c.carrier<0&&!c.planted){for(let i=0;i<5;i++){const p=state.players[i];if(!p.alive)continue;if(Math.hypot(p.x-c.x,p.z-c.z)<1){p.pickup+=dt;if(p.pickup>=1){c.carrier=p.id;c.dropped=false;p.pickup=0;emit('pickup',p);break;}}else p.pickup=0;}}
+  if(!c.planted&&c.carrier>=0){const p=state.players[c.carrier];let site=null;for(let i=0;i<world.sites.length;i++){const s=world.sites[i];if(Math.abs(p.x-s.x)<=s.w/2&&Math.abs(p.z-s.z)<=s.d/2)site=s;}const held=p.human?input?.keys?.KeyE:p.state==='PLANT';if(p.alive&&site&&held&&Math.hypot(p.vx,p.vz)<.8&&state.time-p.damageAt>=.12){p.channel+=dt;c.progress=p.channel;c.x=p.x;c.z=p.z;if(p.human){state.channelText='ARMING THE CHARGE';state.channelProgress=p.channel/3.5;}if(p.channel>=3.5)plant(p,site);}else{p.channel=0;c.progress=0;}}
+  if(c.planted){c.fuse-=dt;let defuser=null;for(let i=0;i<state.players.length;i++){const p=state.players[i];if(p.team===1&&p.alive&&Math.hypot(p.x-c.x,p.z-c.z)<2.7&&state.time-p.damageAt>=.12&&(p.state==='DEFUSE'||p.human&&input?.keys?.KeyE)){defuser=p;break;}}if(defuser){if(c.actor!==defuser.id){c.actor=defuser.id;c.defuse=0;}c.defuse+=dt;defuser.channel=c.defuse;if(defuser.human){state.channelText='DEFUSING THE CHARGE';state.channelProgress=c.defuse/5;}if(c.defuse>=5){defuser.money=Math.min(16000,defuser.money+300);c.defused=true;endRound(1,'CHARGE DEFUSED');return;}}else{c.actor=-1;c.defuse=0;}if(c.fuse<=0){emit('burst',{x:c.x,y:.4,z:c.z});endRound(0,'CHARGE DETONATED');return;}}
+  let rust=0,brine=0;for(let i=0;i<state.players.length;i++){const p=state.players[i];if(p.alive){if(p.team===0)rust++;else brine++;}}
+  if(!brine)endRound(0,'BRINE ELIMINATED');else if(!rust&&!c.planted)endRound(1,'RUST ELIMINATED');else if(state.timer<=0&&!c.planted)endRound(1,'SALTWORKS HELD');
 }
-export function endRound(team, reason) {
-  if (state.phase !== "live") return;
-  state.phase = "end";
-  state.timer = 4;
-  state.winner = team;
-  state.score[team]++;
-  state.losses[team] = 0;
-  state.losses[1 - team]++;
-  for (const p of state.players)
-    p.money = Math.min(
-      16000,
-      p.money +
-        (p.team === team ? economy.win : Math.min(economy.lossCap, economy.loss + 500 * (state.losses[p.team] - 1))),
-    );
-  state.message = reason;
-  emit("win", { team });
-}
-export function damage(victim, amount, attacker, head = false) {
-  if (!victim.alive || state.phase !== "live") return;
-  let absorbed = Math.min(victim.armor, amount * 0.5);
-  victim.armor -= absorbed;
-  victim.hp = Math.max(0, victim.hp - (amount - absorbed));
-  victim.damagedAt = state.time;
-  victim.channel = 0;
-  if (victim.id === 0) {
-    state.damageFlash = 1;
-    state.shake = 0.15;
-  }
-  if (attacker?.id === 0) state.hit = head ? 0.25 : 0.16;
-  if (!victim.hp) {
-    victim.alive = false;
-    if (attacker?.id === 0) {
-      state.hit = 0.35;
-      state.killHit = 0.35;
-    }
-    victim.state = "DEAD";
-    if (attacker) {
-      attacker.money += 300;
-      attacker.kills++;
-      state.feed.unshift({
-        text: attacker.name + "  /  " + victim.name + (head ? " · HEADSHOT" : ""),
-        own: attacker.id === 0,
-        time: state.time,
-      });
-      if (state.feed.length > 3) state.feed.pop();
-    }
-    if (state.charge.carrier === victim.id) {
-      Object.assign(state.charge, {
-        carrier: -1,
-        x: victim.x,
-        z: victim.z,
-        y: victim.y,
-        pickup: 0,
-      });
-      emit("drop");
-    }
-    emit("death", { id: victim.id });
-  }
-}
-export function stepRounds(map, dt, input) {
-  if (state.phase === "match") return;
-  state.timer -= dt;
-  if (state.phase === "buy") {
-    if (state.timer <= 0) {
-      state.phase = "live";
-      state.timer = 100;
-      state.buy = false;
-      emit("live");
-    }
-    return;
-  }
-  if (state.phase === "end") {
-    if (state.timer <= 0) {
-      if (state.score[state.winner] >= 5) {
-        state.phase = "match";
-        emit("match");
-      } else startRound(map);
-    }
-    return;
-  }
-  const c = state.charge;
-  if (!c.planted && c.carrier < 0) {
-    for (let i = 0; i < 5; i++) {
-      const p = state.players[i];
-      if (p.alive && distance(p, c) < 1) {
-        c.pickup += dt;
-        if (c.pickup >= 1) {
-          c.carrier = i;
-          c.pickup = 0;
-          p.objective = null;
-          emit("pickup");
-        }
-        break;
-      }
-    }
-  }
-  if (c.carrier >= 0 && !c.planted) {
-    const carrier = state.players[c.carrier];
-    let siteIndex = -1;
-    for (let s = 0; s < 2; s++) {
-      const site = map.sites[s];
-      if (Math.abs(carrier.x - site.x) < 2.5 && Math.abs(carrier.z - site.z) < 2) {
-        siteIndex = s;
-        break;
-      }
-    }
-    if (
-      siteIndex >= 0 &&
-      (carrier.id ? carrier.state === "PLANT" : input.keys.KeyE) &&
-      Math.hypot(carrier.vx, carrier.vz) < 0.6 &&
-      state.time - carrier.damagedAt > 0.12
-    ) {
-      carrier.channel += dt;
-      if (Math.floor(carrier.channel * 2) !== Math.floor((carrier.channel - dt) * 2)) {
-        state.emitNoise(carrier.x, carrier.z, 18, "plant", 0);
-        emit("beep");
-      }
-      if (carrier.channel >= 3.5) {
-        const site = map.sites[siteIndex];
-        Object.assign(c, {
-          planted: true,
-          x: site.x,
-          y: site.y,
-          z: site.z,
-          site: siteIndex,
-          carrier: -1,
-          fuse: 35,
-        });
-        carrier.money += 300;
-        carrier.channel = 0;
-        emit("plant");
-      }
-    } else carrier.channel = 0;
-  }
-  if (c.planted) {
-    c.fuse -= dt;
-    for (let i = 5; i < 10; i++) {
-      const p = state.players[i];
-      if (!p.alive || distance(p, c) > 2.7 || p.state !== "DEFUSE") {
-        p.channel = 0;
-        continue;
-      }
-      if (state.time - p.damagedAt > 0.12) {
-        p.channel += dt;
-        if (Math.floor(p.channel * 2) !== Math.floor((p.channel - dt) * 2)) {
-          state.emitNoise(p.x, p.z, 18, "defuse", 1);
-          emit("beep");
-        }
-      }
-      if (p.channel >= 5) {
-        p.money += 300;
-        endRound(1, "THE CHARGE IS DEFUSED");
-        return;
-      }
-    }
-    if (c.fuse <= 0) {
-      emit("detonate");
-      endRound(0, "RUST TAKES " + map.sites[c.site].name);
-      return;
-    }
-  }
-  let rust = 0,
-    brine = 0;
-  for (let i = 0; i < 10; i++)
-    if (state.players[i].alive) {
-      if (i < 5) rust++;
-      else brine++;
-    }
-  if (!brine) endRound(0, "RUST SECURES THE SALTWORKS");
-  else if (!rust && !c.planted) endRound(1, "BRINE HOLDS THE LINE");
-  else if (state.timer <= 0) endRound(c.planted ? 0 : 1, c.planted ? "RUST TAKES THE SITE" : "BRINE HOLDS THE LINE");
-}
+export function updateRounds(dt){stepRounds(map,dt,globalInput);}

@@ -1,202 +1,27 @@
-import { state } from "./state.js";
-import { guns, spread } from "./weapons.js";
-import { palette } from "./palette.js";
-const ids = [
-  "score",
-  "feed",
-  "health",
-  "hpbar",
-  "armor",
-  "weapon",
-  "mag",
-  "reserve",
-  "reload",
-  "reloadLabel",
-  "objective",
-  "spectate",
-  "overlay",
-  "title",
-  "subtitle",
-  "play",
-  "controls",
-  "eyebrow",
-  "buy",
-  "money",
-  "cross",
-  "hit",
-  "damage",
-];
-const el = {},
-  cache = {};
-for (const id of ids) el[id] = document.getElementById(id);
-function text(k, v) {
-  if (cache[k] !== v) {
-    el[k].textContent = v;
-    cache[k] = v;
-  }
+import state from './state.js';
+import {guns,spread} from './weapons.js';
+import colors from './palette.js';
+const refs={},cache={};
+function element(id){return refs[id] ||= document.getElementById(id);}
+function text(id,value){if(cache[id]!==value){cache[id]=value;element(id).textContent=value;}}
+function visible(id,value){const key=id+'Visible';if(cache[key]!==value){cache[key]=value;element(id).classList.toggle('hidden',!value);}}
+function style(id,name,value){const key=id+':'+name;if(cache[key]!==value){cache[key]=value;element(id).style[name]=value;}}
+function width(id,value){style(id,'width',Math.max(0,Math.min(100,value)).toFixed(1)+'%');}
+let lastMap=-1,lastBuy='';
+function minimap(){const canvas=element('minimap'),ctx=canvas.getContext('2d'),sx=canvas.width/48,sz=canvas.height/38;ctx.fillStyle=colors.dusk;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(canvas.width/2,canvas.height/2);ctx.fillStyle=colors.salt;ctx.globalAlpha=.17;ctx.fillRect(-22*sx,-17*sz,44*sx,34*sz);ctx.globalAlpha=1;ctx.fillStyle=colors.iron;for(const c of state.colliders)ctx.fillRect(c.minX*sx,c.minZ*sz,(c.maxX-c.minX)*sx,(c.maxZ-c.minZ)*sz);for(const s of state.sites){ctx.strokeStyle=s.id===0?colors.rust:colors.brine;ctx.lineWidth=2;ctx.strokeRect((s.x-2.5)*sx,(s.z-2)*sz,5*sx,4*sz);ctx.fillStyle=ctx.strokeStyle;ctx.font='bold 15px system-ui';ctx.fillText(s.letter,s.x*sx-5,s.z*sz+5);}for(const p of state.players){if(!p.alive)continue;if(p.team!==state.player.team&&!state.shot)continue;ctx.fillStyle=p.human?colors.ink:p.team===0?colors.rust:colors.brine;ctx.beginPath();ctx.arc(p.x*sx,p.z*sz,p.human?5:3,0,Math.PI*2);ctx.fill();if(p.human){ctx.strokeStyle=colors.ink;ctx.beginPath();ctx.moveTo(p.x*sx,p.z*sz);ctx.lineTo((p.x-Math.sin(p.yaw)*2)*sx,(p.z-Math.cos(p.yaw)*2)*sz);ctx.stroke();}}const c=state.charge;if(c.planted||c.dropped){ctx.fillStyle=colors.rust;ctx.fillRect(c.x*sx-3,c.z*sz-3,6,6);}ctx.restore();}
+function buyRows(p){const key=p.money+':'+p.grenade+':'+p.armor;if(key===lastBuy)return;lastBuy=key;for(const row of document.querySelectorAll('.buyrow')){const id=row.dataset.buy,price=guns[id]?.price??(id==='rig'?650:300);row.disabled=p.money<price||id==='rig'&&p.armor>=50||id==='flashpan'&&!!p.grenade;}}
+export function updateHud(){const p=state.player,g=guns[p.gun],c=state.charge;
+  text('hp',Math.ceil(p.hp));text('armor',Math.ceil(p.armor));width('hpFill',p.hp);width('armorFill',p.armor*2);text('mag',p.mag);text('reserve','/ '+p.reserve);text('gun',g.name);text('money','$'+p.money.toLocaleString('en-US')+(state.phase==='buy'?' · B / REQUISITION':''));text('rustscore',state.score[0]);text('brinescore',state.score[1]);text('round',state.phase==='buy'?'REQUISITION':'ROUND '+String(state.round).padStart(2,'0'));
+  const seconds=Math.max(0,Math.ceil(c.planted&&state.phase==='live'?c.fuse:state.timer));text('timer',String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'));
+  text('reloadLabel',p.reload>0?'RELOADING':'');width('reloadFill',p.reload>0?(1-p.reload/p.reloadTotal)*100:0);style('reloadTrack','opacity',p.reload>0?'1':'.3');
+  visible('start',!state.started);visible('pause',state.started&&state.paused&&!state.shot&&state.phase!=='match');visible('buy',state.buyOpen&&state.phase==='buy');text('buyMoney','$'+p.money.toLocaleString('en-US'));if(state.buyOpen)buyRows(p);
+  visible('banner',state.phase==='end');text('bannerTitle',state.winner===p.team?'ROUND WON':'ROUND LOST');text('bannerReason',state.reason||state.message);
+  visible('match',state.phase==='match');text('matchTitle',state.winner===0?'RUST TAKES THE SALTWORKS':'BRINE HOLDS THE LINE');text('matchScore',state.score[0]+' — '+state.score[1]+' / '+p.kills+' ELIMINATIONS');
+  visible('channel',!!state.channelText);text('channelText',state.channelText);width('channelFill',state.channelProgress*100);
+  let prompt='';if(!p.alive){let name='the crew';for(let i=1;i<5;i++)if(state.players[i].alive){name=state.players[i].name;break;}prompt='YOU ARE OUT — WATCHING '+name;}else if(state.phase==='buy')prompt='B / REQUISITION · '+(c.carrier===p.id?'YOU HAVE THE CHARGE':'ESCORT '+state.players[Math.max(0,c.carrier)].name);else if(c.planted)prompt='CHARGE ARMED · '+(c.site===0?'CRUSHER':'PONDS')+' / '+Math.ceil(c.fuse)+'s';else if(c.carrier===p.id){prompt='TAKE THE CHARGE TO A / CRUSHER OR B / PONDS';for(const site of state.sites)if(Math.abs(p.x-site.x)<2.5&&Math.abs(p.z-site.z)<2)prompt='HOLD E / ARM THE CHARGE';}else if(c.dropped)prompt='CHARGE DROPPED · RECOVER IT';text('prompt',prompt);
+  text('location',p.z>10?'SOUTH GATE':p.x>13?'EAST GANTRY / CRUSHER':p.x<-13?'WEST GANTRY / PONDS':p.z<-9?'LOADING DOCK':p.z<-6?'THE TRESTLE':'THE CAUSEWAY');
+  const gap=(5+spread(p)*440).toFixed(1)+'px';if(cache.gap!==gap){cache.gap=gap;element('crosshair').style.setProperty('--gap',gap);}style('crosshair','opacity',p.alive?'1':'0');style('hitmarker','opacity',state.hitmarker>0?'1':'0');style('hitmarker','width',state.hitKill?'23px':'14px');style('hitmarker','height',state.hitKill?'23px':'14px');style('damage','opacity',state.damageFlash.toFixed(2));
+  let feed='';for(let i=0;i<state.feed.length;i++){const row=state.feed[i];if(state.time-row.time<4)feed+=row.killer+'  ›  '+row.victim+(row.head?' / HEAD':'')+'\n';}text('feed',feed);style('feed','whiteSpace','pre-line');
+  if(lastMap!==Math.floor(state.time*10)||state.shot){lastMap=Math.floor(state.time*10);minimap();}
 }
-function style(k, p, v) {
-  const key = k + p;
-  if (cache[key] !== v) {
-    el[k].style[p] = v;
-    cache[key] = v;
-  }
-}
-const feedNodes = [],
-  feedCache = [];
-for (let i = 0; i < 3; i++) {
-  const line = document.createElement("div");
-  el.feed.appendChild(line);
-  feedNodes.push(line);
-}
-export function createHUD(actions) {
-  el.play.onclick = actions.play;
-  document.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = () => actions.buy(Number(b.dataset.buy))));
-}
-export function updateHUD(map) {
-  const p = state.players[0],
-    g = guns[p.gun],
-    c = state.charge,
-    t = Math.max(0, Math.ceil(c.planted ? c.fuse : state.timer)),
-    clock = String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
-  text(
-    "score",
-    "RUST  " +
-      state.score[0] +
-      "    |    " +
-      (state.phase === "buy" ? "BUY  " : state.phase === "match" ? "FINAL  " : "R" + state.round + "  ") +
-      clock +
-      "    |    " +
-      state.score[1] +
-      "  BRINE",
-  );
-  text("health", Math.ceil(p.hp));
-  style("hpbar", "width", p.hp + "%");
-  style("armor", "width", p.armor * 2 + "%");
-  text("weapon", g.name + " · $" + p.money);
-  text("mag", p.mag);
-  text("reserve", " / " + p.reserve);
-  text("reloadLabel", p.reload ? "RELOADING" : "");
-  style("reload", "width", p.reload ? (1 - p.reload / g.reload) * 100 + "%" : "0%");
-  const gap = (7 + spread(p) * 600).toFixed(1) + "px";
-  if (cache.gap !== gap) {
-    el.cross.style.setProperty("--gap", gap);
-    cache.gap = gap;
-  }
-  style("hit", "opacity", state.hit > 0 ? "1" : "0");
-  style(
-    "hit",
-    "transform",
-    state.killHit > 0 ? "translate(-50%,-50%) rotate(45deg) scale(1.5)" : "translate(-50%,-50%) rotate(45deg)",
-  );
-  style("damage", "opacity", String(state.damageFlash * 0.5));
-  style("buy", "display", state.buy ? "block" : "none");
-  text("money", "$" + p.money);
-  let objective =
-    state.phase === "buy"
-      ? "BUY PHASE · B TO REQUISITION"
-      : c.planted
-        ? "CHARGE LIVE · " + map.sites[c.site].name + " · " + Math.ceil(c.fuse) + "s"
-        : c.carrier === 0
-          ? "YOU CARRY THE CHARGE · HOLD E AT A SITE"
-          : c.carrier < 0
-            ? "CHARGE DROPPED · RECOVER IT"
-            : "ESCORT THE CHARGE TO A SITE";
-  if (p.channel > 0) objective = "PLANTING THE CHARGE · " + Math.floor((p.channel / 3.5) * 100) + "%";
-  text("objective", objective);
-  style("objective", "borderBottom", p.channel > 0 ? "3px solid var(--rust)" : "0px solid var(--rust)");
-  style("objective", "paddingBottom", p.channel > 0 ? "10px" : "0px");
-  let spectator = "";
-  if (!p.alive) {
-    let n = "the saltworks";
-    for (let i = 1; i < 5; i++)
-      if (state.players[i].alive) {
-        n = state.players[i].name;
-        break;
-      }
-    spectator = "You are out — watching " + n + " · bots finish at ×2";
-  }
-  text("spectate", spectator);
-  for (let i = 0; i < 3; i++) {
-    const f = state.feed[i],
-      value = f && state.time - f.time < 4 ? f.text : "";
-    if (feedCache[i] !== value) {
-      feedNodes[i].textContent = value;
-      feedNodes[i].style.color = f?.own ? palette.rust : palette.sand;
-      feedCache[i] = value;
-    }
-  }
-  const show = !state.started || state.paused || state.phase === "end" || state.phase === "match";
-  style("overlay", "display", show ? "flex" : "none");
-  if (show) {
-    const start = !state.started,
-      match = state.phase === "match",
-      end = state.phase === "end";
-    text(
-      "title",
-      start
-        ? "SALTLINE"
-        : match
-          ? state.score[0] >= 5
-            ? "SALT IS OURS"
-            : "BRINE HOLDS"
-          : end
-            ? state.winner === 0
-              ? "ROUND WON"
-              : "ROUND LOST"
-            : "PAUSED",
-    );
-    style("title", "fontSize", start ? "clamp(70px,10vw,140px)" : "64px");
-    text(
-      "subtitle",
-      start
-        ? "Dusk falls. The brine holds. Take the saltworks before the light goes."
-        : match
-          ? "Final score " + state.score[0] + " — " + state.score[1]
-          : end
-            ? state.message
-            : "The saltworks can wait. Resume when ready.",
-    );
-    text("play", match ? "PLAY AGAIN →" : start ? "ENTER THE SALTWORKS →" : "RESUME →");
-    style("play", "display", end ? "none" : "inline-block");
-    style("controls", "display", start ? "block" : "none");
-    text(
-      "eyebrow",
-      start
-        ? "THE SALTWORKS · 5 V 5 · TACTICAL FPS"
-        : end
-          ? "NEXT ROUND IN " + Math.ceil(state.timer) + " · $" + p.money
-          : "SALTLINE / THE SALTWORKS",
-    );
-  }
-}
-const ctx = document.getElementById("radar").getContext("2d");
-let radarTick = -1;
-export function minimap(map) {
-  const tick = Math.floor(state.time * 8);
-  if (tick === radarTick) return;
-  radarTick = tick;
-  ctx.fillStyle = palette.dusk;
-  ctx.fillRect(0, 0, 360, 280);
-  const sx = 7.6,
-    sz = 7.6;
-  ctx.strokeStyle = palette.iron;
-  ctx.lineWidth = 2;
-  for (const c of map.colliders)
-    ctx.strokeRect(180 + c.minX * sx, 140 + c.minZ * sz, (c.maxX - c.minX) * sx, (c.maxZ - c.minZ) * sz);
-  for (const s of map.sites) {
-    ctx.strokeStyle = palette[s.color];
-    ctx.strokeRect(180 + (s.x - 2.5) * sx, 140 + (s.z - 2) * sz, 5 * sx, 4 * sz);
-    ctx.fillStyle = palette[s.color];
-    ctx.font = "16px system-ui";
-    ctx.fillText(s.letter, 180 + s.x * sx - 5, 140 + s.z * sz + 5);
-  }
-  for (const p of state.players) {
-    if (!p.alive) continue;
-    if (p.team && !state.shot) continue;
-    ctx.fillStyle = palette[p.id === 0 ? "ink" : p.team ? "brine" : "rust"];
-    ctx.beginPath();
-    ctx.arc(180 + p.x * sx, 140 + p.z * sz, p.id === 0 ? 5 : 3.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
+export const sync=updateHud;

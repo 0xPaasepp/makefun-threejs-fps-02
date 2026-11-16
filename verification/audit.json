@@ -14,10 +14,10 @@
     "shotSizes": true
   },
   "sourceFiles": 14,
-  "sourceBytes": 74959,
-  "gameEntries": 21,
-  "gameBytes": 2209914,
-  "dossierBytes": 344817,
+  "sourceBytes": 62531,
+  "gameEntries": 22,
+  "gameBytes": 2197681,
+  "dossierBytes": 327848,
   "vendor": {
     "three.core.min.js": "613e370f76638fdef83926642bf256dc9615684922de1ce1f63a8583e5d78578",
     "three.module.min.js": "ef510bae547ab3789d6ed543333a8bf42510a8c70743b766c4e19039b976c26b",
@@ -26,19 +26,19 @@
   "shots": [
     {
       "name": "1-cover.jpg",
-      "bytes": 56858
+      "bytes": 54833
     },
     {
       "name": "2-causeway.jpg",
-      "bytes": 44222
+      "bytes": 49113
     },
     {
       "name": "3-crusher.jpg",
-      "bytes": 50885
+      "bytes": 49443
     },
     {
       "name": "4-round-end.jpg",
-      "bytes": 46282
+      "bytes": 43686
     }
   ]
 }
